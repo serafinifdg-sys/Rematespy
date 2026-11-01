@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis remates</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--card:#f3f4f6;--mut:#666;--ac:#1f3864;--on:#fff;--warn:#f8cbad;--new:#d7f0d2;--line:#d0d4da;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--fg:#eee;--card:#1d222a;--mut:#9aa;--ac:#6d8fd6;--on:#0b0e13;--warn:#5a3a2a;--new:#24432a;--line:#333a44}}
+body{margin:0 auto;background:var(--bg);color:var(--fg);font-family:Arial,Helvetica,sans-serif;padding:12px;max-width:760px}
+h1{font-size:20px;margin:6px 0 2px}.m{color:var(--mut);font-size:13px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:2}
+button,select,input{font:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+button.on{background:var(--ac);color:var(--on);border-color:var(--ac)}input{flex:1;min-width:150px}
+.dia{margin:18px 0 6px;padding:6px 10px;border-left:5px solid var(--ac);font-weight:bold}
+.dia span{font-weight:normal;color:var(--mut);font-size:13px;margin-left:6px}
+.c{background:var(--card);border-radius:12px;padding:12px;margin:8px 0}
+.c.s{background:var(--warn)}.c.n{background:var(--new)}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--ac);color:var(--on);margin-right:6px}
+.t{font-weight:bold;margin:6px 0 2px}.k{font-size:14px;margin:2px 0}
+a{color:var(--ac);font-weight:bold;text-decoration:none}
+</style></head><body>
+<h1>Mis remates</h1><div class="m" id="info">Cargando…</div>
+<div class="bar">
+<button id="bp" class="on">Próximos</button><button id="bt">Todos</button>
+<select id="ty"><option value="">Todo tipo</option><option>Inmueble</option><option>Vehículo</option><option>Maquinaria</option><option>Otro</option></select>
+<input id="q" placeholder="Buscar distrito, rematador o juicio"></div>
+<div id="l"></div>
+<script>
+var D=[],soloProx=true,hoy=new Date().toISOString().slice(0,10);
+var DIAS=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+function norm(s){return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function esc(s){return (s||"").replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fmt(f){var p=f.split("-"),d=new Date(+p[0],p[1]-1,+p[2]);return DIAS[d.getDay()]+" "+p[2]+"/"+p[1]+"/"+p[0]}
+function dias(f){var p=f.split("-");return Math.round((new Date(+p[0],p[1]-1,+p[2])-new Date(hoy+"T00:00:00"))/864e5)}
+function nuevo(x){return x.primera_vez&&(new Date(hoy)-new Date(x.primera_vez))/864e5<=2}
+function card(x){
+ return '<div class="c'+(x.suspendido?' s':nuevo(x)?' n':'')+'"><span class="chip">'+esc(x.tipo)+'</span>'
+ +(x.hora?'<b>'+x.hora+' hs</b>':'')+(x.suspendido?' · <b>SUSPENDIDO</b>':'')+(nuevo(x)&&!x.suspendido?' · <b>NUEVO</b>':'')
+ +'<div class="t">'+esc(x.detalle)+'</div>'
+ +(x.caratula?'<div class="k">'+esc(x.caratula)+'</div>':'')
+ +'<div class="m">'+esc(x.rematador)+(x.expediente?' · '+esc(x.expediente):'')+'</div>'
+ +(x.juzgado?'<div class="m">'+esc(x.juzgado)+'</div>':'')
+ +(x.base?'<div class="m">Base (verificar en el edicto): '+esc(x.base)+'</div>':'')
+ +'<div style="margin-top:6px"><a href="'+esc(x.url)+'" target="_blank" rel="noopener">Abrir edicto →</a> &nbsp; <a href="https://www.pj.gov.py" target="_blank" rel="noopener">Verificar en el Poder Judicial →</a></div></div>'}
+function r(){
+ var ty=document.getElementById("ty").value,q=norm(document.getElementById("q").value),g={},sin=[],n=0;
+ D.forEach(function(x){
+  if(ty&&x.tipo!==ty)return;
+  if(q&&norm([x.detalle,x.rematador,x.caratula,x.juzgado].join(" ")).indexOf(q)<0)return;
+  if(!x.fecha){sin.push(x);return}
+  if(soloProx&&x.fecha<hoy)return;
+  (g[x.fecha]=g[x.fecha]||[]).push(x);n++});
+ var f=Object.keys(g).sort();if(!soloProx)f.reverse();
+ var h="";f.forEach(function(k){var d=dias(k);
+  h+='<div class="dia">'+fmt(k)+'<span>'+(d===0?'hoy':d===1?'mañana':d>1?'en '+d+' días':'hace '+(-d)+' días')+' · '+g[k].length+'</span></div>';
+  g[k].sort(function(a,b){return (a.hora||"").localeCompare(b.hora||"")}).forEach(function(x){h+=card(x)})});
+ if(sin.length&&!soloProx){h+='<div class="dia">Sin fecha detectada<span>'+sin.length+'</span></div>';sin.forEach(function(x){h+=card(x)})}
+ document.getElementById("l").innerHTML=h||'<div class="m">No hay remates con ese filtro.</div>';
+ document.getElementById("info").textContent=n+" remates con fecha"+(sin.length?" · "+sin.length+" sin fecha detectada (ver en Todos)":"")+" · actualizado "+(window.ACT||"");
+}
+bp.onclick=function(){soloProx=true;bp.className="on";bt.className="";r()};
+bt.onclick=function(){soloProx=false;bt.className="on";bp.className="";r()};
+ty.onchange=r;q.oninput=r;
+fetch("data.json?v="+Date.now()).then(function(x){return x.json()}).then(function(j){D=j.items;window.ACT=j.actualizado;r()})
+.catch(function(){document.getElementById("info").textContent="Todavía no hay data.json. Corré la acción 'Actualizar remates' en GitHub."});
+</script></body></html>
